@@ -7,6 +7,8 @@ from werkzeug.utils import secure_filename
 from io import BytesIO
 import json
 import logging
+import sqlite3
+from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,17 +18,63 @@ app = Flask(__name__)
 
 # Use environment variables for configuration
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size for Vercel
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['DATABASE'] = os.path.join('data', 'files.db')
+app.config['UPLOAD_FOLDER'] = os.path.join('data', 'uploads')
 
-# Store file information (in-memory for serverless)
-file_storage = {}
+# Ensure directories exist
+try:
+    if not os.path.exists('data'):
+        os.mkdir('data')
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.mkdir(app.config['UPLOAD_FOLDER'])
+except Exception as e:
+    logger.error("Error creating directories: %s", str(e))
+    raise
+
+def init_db():
+    """Initialize the SQLite database"""
+    try:
+        # Remove existing database if it's corrupted
+        if os.path.exists(app.config['DATABASE']):
+            try:
+                with sqlite3.connect(app.config['DATABASE']) as test_conn:
+                    test_conn.execute('SELECT 1 FROM files')
+            except:
+                os.remove(app.config['DATABASE'])
+        
+        with sqlite3.connect(app.config['DATABASE']) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS files (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    filepath TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    expires_at TIMESTAMP NOT NULL
+                )
+            ''')
+            conn.commit()
+        logger.info("Database initialized at: %s", os.path.abspath(app.config['DATABASE']))
+    except Exception as e:
+        logger.error("Error initializing database: %s", str(e))
+        raise
+
+# Initialize database
+init_db()
+
+def get_db():
+    """Get database connection"""
+    conn = sqlite3.connect(app.config['DATABASE'])
+    conn.row_factory = sqlite3.Row
+    return conn
 
 @app.route('/')
 def index():
     try:
         return render_template('index.html')
     except Exception as e:
-        logger.error(f"Error rendering index: {str(e)}")
+        logger.error("Error rendering index: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/about')
@@ -72,7 +120,7 @@ def generate_qr_code(data):
         img_byte_arr.seek(0)
         return img_byte_arr
     except Exception as e:
-        logger.error(f"Error generating QR code: {str(e)}")
+        logger.error("Error generating QR code: %s", str(e))
         return None
 
 @app.route('/upload', methods=['POST'])
@@ -95,20 +143,25 @@ def upload_file():
             except:
                 filename = sanitize_filename(file.filename)
             
-            logger.info(f"Processing file: {filename}")
+            logger.info("Processing file: %s", filename)
             
             # Generate unique ID for the file
             file_id = str(uuid.uuid4())
             
-            # Read file into memory
-            file_data = file.read()
+            # Save file to disk
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_id)
+            file.save(file_path)
+            file_size = os.path.getsize(file_path)
             
-            # Store file information
-            file_storage[file_id] = {
-                'filename': filename,
-                'data': file_data,
-                'size': len(file_data)
-            }
+            # Store file info in SQLite
+            with get_db() as conn:
+                now = datetime.utcnow()
+                expires = now + timedelta(days=7)
+                conn.execute(
+                    'INSERT INTO files (id, filename, filepath, size, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+                    (file_id, filename, file_path, file_size, now, expires)
+                )
+                conn.commit()
             
             # Generate share URL
             share_url = request.host_url.rstrip('/') + url_for('download_file', file_id=file_id)
@@ -123,47 +176,115 @@ def upload_file():
                 'file_id': file_id,
                 'filename': filename,
                 'share_url': share_url,
-                'qr_code': base64.b64encode(qr_code.getvalue()).decode('utf-8')
+                'qr_code': base64.b64encode(qr_code.getvalue()).decode('utf-8'),
+                'expires_at': expires.isoformat()
             }
             
-            logger.info(f"File processed successfully: {file_id}")
+            logger.info("File processed successfully: %s", file_id)
             return jsonify(response_data)
             
     except Exception as e:
-        logger.error(f"Error in upload_file: {str(e)}")
+        logger.error("Error in upload_file: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/download/<file_id>')
 def download_file(file_id):
     try:
-        if file_id not in file_storage:
-            logger.error(f"File not found: {file_id}")
-            return jsonify({'error': 'File not found'}), 404
-        
-        file_info = file_storage[file_id]
-        
-        return send_file(
-            BytesIO(file_info['data']),
-            mimetype='application/octet-stream',
-            as_attachment=True,
-            attachment_filename=file_info['filename']
-        )
+        with get_db() as conn:
+            # Find file in database
+            file = conn.execute('SELECT * FROM files WHERE id = ?', (file_id,)).fetchone()
+            
+            if not file:
+                logger.error("File not found: %s", file_id)
+                return jsonify({'error': 'File not found'}), 404
+            
+            # Check if file has expired
+            if datetime.utcnow() > datetime.fromisoformat(file['expires_at']):
+                # Delete file and database entry
+                os.remove(file['filepath'])
+                conn.execute('DELETE FROM files WHERE id = ?', (file_id,))
+                conn.commit()
+                return jsonify({'error': 'File has expired'}), 404
+            
+            return send_file(
+                file['filepath'],
+                as_attachment=True,
+                attachment_filename=file['filename']
+            )
     except Exception as e:
-        logger.error(f"Error in download_file: {str(e)}")
+        logger.error("Error in download_file: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/file_info/<file_id>')
 def file_info(file_id):
     try:
-        if file_id not in file_storage:
-            logger.error(f"File info not found: {file_id}")
-            return jsonify({'error': 'File not found'}), 404
-        
-        info = file_storage[file_id].copy()
-        del info['data']  # Remove binary data from response
-        return jsonify(info)
+        with get_db() as conn:
+            # Find file in database
+            file = conn.execute('SELECT * FROM files WHERE id = ?', (file_id,)).fetchone()
+            
+            if not file:
+                logger.error("File info not found: %s", file_id)
+                return jsonify({'error': 'File not found'}), 404
+            
+            # Check if file has expired
+            if datetime.utcnow() > datetime.fromisoformat(file['expires_at']):
+                # Delete file and database entry
+                os.remove(file['filepath'])
+                conn.execute('DELETE FROM files WHERE id = ?', (file_id,))
+                conn.commit()
+                return jsonify({'error': 'File has expired'}), 404
+            
+            info = {
+                'filename': file['filename'],
+                'size': file['size'],
+                'created_at': file['created_at'],
+                'expires_at': file['expires_at']
+            }
+            return jsonify(info)
     except Exception as e:
-        logger.error(f"Error in file_info: {str(e)}")
+        logger.error("Error in file_info: %s", str(e))
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/database')
+def download_database():
+    """Download the SQLite database file"""
+    try:
+        return send_file(
+            app.config['DATABASE'],
+            as_attachment=True,
+            attachment_filename='files.db',
+            mimetype='application/x-sqlite3'
+        )
+    except Exception as e:
+        logger.error("Error downloading database: %s", str(e))
+        return jsonify({'error': 'Database file not found'}), 404
+
+# Cleanup task for expired files
+@app.route('/cleanup', methods=['POST'])
+def cleanup_expired_files():
+    try:
+        with get_db() as conn:
+            # Get expired files
+            expired_files = conn.execute(
+                'SELECT filepath FROM files WHERE expires_at < ?', 
+                (datetime.utcnow(),)
+            ).fetchall()
+            
+            # Delete physical files
+            for file in expired_files:
+                try:
+                    os.remove(file['filepath'])
+                except:
+                    pass
+            
+            # Delete database entries
+            cursor = conn.execute('DELETE FROM files WHERE expires_at < ?', (datetime.utcnow(),))
+            deleted_count = cursor.rowcount
+            conn.commit()
+            
+            return jsonify({'message': 'Deleted %d expired files' % deleted_count})
+    except Exception as e:
+        logger.error("Error in cleanup: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(413)
@@ -172,16 +293,14 @@ def request_entity_too_large(error):
 
 @app.errorhandler(500)
 def internal_error(error):
-    logger.error(f"Internal server error: {str(error)}")
+    logger.error("Internal server error: %s", str(error))
     return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    logger.error(f"Unhandled exception: {str(e)}")
+    logger.error("Unhandled exception: %s", str(e))
     return jsonify({'error': 'Internal server error'}), 500
 
-app.debug = False
-
-# This is required for Vercel
 if __name__ == '__main__':
-    app.run()
+    print(" * Running on http://127.0.0.1:5000/")
+    app.run(host='127.0.0.1', port=5000)
