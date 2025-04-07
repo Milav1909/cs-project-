@@ -3,23 +3,18 @@ import os
 import uuid
 import base64
 import qrcode
-from werkzeug import secure_filename
+from werkzeug.utils import secure_filename
 from io import BytesIO
 import json
 
 app = Flask(__name__)
 
 # Use environment variables for configuration
-app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Use /tmp for serverless
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', base64.b64encode(os.urandom(24)))
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size for Vercel
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 # Store file information (in-memory for serverless)
 file_storage = {}
-
-# Ensure upload directory exists
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 @app.route('/')
 def index():
@@ -85,15 +80,14 @@ def upload_file():
         # Generate unique ID for the file
         file_id = str(uuid.uuid4())
         
-        # Save file
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_id)
-        file.save(file_path)
+        # Read file into memory
+        file_data = file.read()
         
         # Store file information
         file_storage[file_id] = {
             'filename': filename,
-            'path': file_path,
-            'size': os.path.getsize(file_path)
+            'data': file_data,
+            'size': len(file_data)
         }
         
         # Generate share URL
@@ -116,8 +110,10 @@ def download_file(file_id):
         return jsonify({'error': 'File not found'}), 404
     
     file_info = file_storage[file_id]
+    
     return send_file(
-        file_info['path'],
+        BytesIO(file_info['data']),
+        mimetype='application/octet-stream',
         as_attachment=True,
         attachment_filename=file_info['filename']
     )
@@ -127,11 +123,12 @@ def file_info(file_id):
     if file_id not in file_storage:
         return jsonify({'error': 'File not found'}), 404
     
-    return jsonify(file_storage[file_id])
+    info = file_storage[file_id].copy()
+    del info['data']  # Remove binary data from response
+    return jsonify(info)
+
+app.debug = False
 
 # This is required for Vercel
 if __name__ == '__main__':
     app.run()
-else:
-    # This is required for Vercel
-    handler = app

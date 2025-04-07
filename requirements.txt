@@ -1,8 +1,8 @@
-Flask==0.12.5
-Werkzeug==0.16.1
-Jinja2==2.11.3
-itsdangerous==1.1.0
-click==7.1.2
-MarkupSafe==1.1.1
-qrcode==6.1
-Pillow==6.2.2 
+Flask==2.0.1
+Werkzeug==2.0.1
+Jinja2==3.0.1
+itsdangerous==2.0.1
+click==8.0.1
+MarkupSafe==2.0.1
+qrcode==7.3
+Pillow==8.3.1 
