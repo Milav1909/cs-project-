@@ -16,34 +16,39 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Add static file serving
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
+
 # Use environment variables for configuration
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size for Vercel
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['DATABASE'] = os.path.join('data', 'files.db')
-app.config['UPLOAD_FOLDER'] = os.path.join('data', 'uploads')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+
+# For Vercel, use /tmp directory for file storage
+if os.environ.get('VERCEL_ENV') == 'production':
+    app.config['DATABASE'] = '/tmp/files.db'
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+else:
+    app.config['DATABASE'] = os.path.join('data', 'files.db')
+    app.config['UPLOAD_FOLDER'] = os.path.join('data', 'uploads')
 
 # Ensure directories exist
-try:
-    if not os.path.exists('data'):
-        os.mkdir('data')
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.mkdir(app.config['UPLOAD_FOLDER'])
-except Exception as e:
-    logger.error("Error creating directories: %s", str(e))
-    raise
+def ensure_directories():
+    try:
+        if not os.path.exists(os.path.dirname(app.config['DATABASE'])):
+            os.makedirs(os.path.dirname(app.config['DATABASE']))
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+    except Exception as e:
+        logger.error("Error creating directories: %s", str(e))
+        raise
+
+ensure_directories()
 
 def init_db():
     """Initialize the SQLite database"""
     try:
-        # Remove existing database if it's corrupted
-        if os.path.exists(app.config['DATABASE']):
-            try:
-                conn = sqlite3.connect(app.config['DATABASE'])
-                conn.execute('SELECT 1 FROM files')
-                conn.close()
-            except:
-                os.remove(app.config['DATABASE'])
-        
         conn = sqlite3.connect(app.config['DATABASE'])
         conn.execute('''
             CREATE TABLE IF NOT EXISTS files (
@@ -313,5 +318,8 @@ def handle_exception(e):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    print(" * Running on http://127.0.0.1:5000/")
+    print(" * Running on http://localhost:5000/ (Press CTRL+C to quit)")
     app.run(host='127.0.0.1', port=5000)
+
+# For Vercel serverless deployment
+app = app
