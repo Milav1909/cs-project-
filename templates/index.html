@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aava de! - Simple File Sharing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>AAVA DE!</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    <li><a href="{{ url_for('about') }}">About</a></li>
+                    <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h2>Share Files Securely and Easily</h2>
+                    <p>No registration required. Fast, secure, and simple file sharing for everyone.</p>
+                    <section class="upload-area" id="uploadArea">
+                        <div class="container">
+                            <div class="upload-container" id="dropZone">
+                                <div class="upload-icon">📂</div>
+                                <h3>Drag & Drop Files Here</h3>
+                                <p>or</p>
+                                <button class="btn-primary" id="browseBtn">Select & Upload Files</button>
+                                <p class="file-limit">Up to 2GB per file</p>
+                            </div>
+                            <div class="upload-progress" id="uploadProgress">
+                                <h3>Uploading Files...</h3>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" id="progressBar"></div>
+                                </div>
+                                <p id="progressText">0%</p>
+                            </div>
+                            <div class="upload-success" id="uploadSuccess">
+                                <div class="success-icon">✅</div>
+                                <h3>Upload Complete!</h3>
+                                <div class="share-link">
+                                    <input type="text" id="shareLink" readonly value="https://aavade.example/s/abcd1234">
+                                    <button id="copyBtn" class="btn-copy">Copy</button>
+                                </div>
+                                <div id="qrCodeContainer" class="qr-code-container"></div>
+                                <p>Link expires in 7 days</p>
+                                <button class="btn-primary" id="newUploadBtn">Upload More Files</button>
+                            </div>
+                            
+                        </div>
+                    </section>
+
+                    <input type="file" id="fileInput" multiple hidden>
+                </div>
+                <div class="hero-image">
+                    <img src="{{ url_for('static', filename='photo/daksh.jpg') }}" alt="File sharing illustration">
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="container">
+                <h2 class="section-title">Why Choose AAVA DE?</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Secure</h3>
+                        <p>End-to-end encryption keeps your files safe and private.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Fast</h3>
+                        <p>Lightning-fast transfers with no speed limits.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌐</div>
+                        <h3>No Registration</h3>
+                        <p>No account needed. Just upload and share.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <h3>Cross-Platform</h3>
+                        <p>Works on all devices and browsers.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="how-it-works">
+            <div class="container">
+                <h2 class="section-title">How It Works</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h3>Upload</h3>
+                        <p>Select files from your device</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h3>Get Link</h3>
+                        <p>Receive a secure sharing link and QR code</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h3>Share</h3>
+                        <p>Send the link or QR code to your recipients</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3>AAVA DE!</h3>
+                    <p>Simple, secure file sharing for everyone.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="{{ url_for('about') }}">About Us</a></li>
+                        <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
+                        <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
+                        <li><a href="{{ url_for('cookie') }}">Cookie Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Connect</h4>
+                    <div class="social-links">
+                        <ul>
+                            <li><a href="https://www.linkedin.com/in/prayag-goyani-04a186324?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app">LinkedIn</a></li>
+                            <li><a href="https://www.instagram.com/prxyag_goyani?igsh=MWRpOTNtMnNvZHVxbw==">Instagram</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2025 AAVA DE!. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

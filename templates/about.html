@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - AAVA DE!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>AAVA DE!</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    <li><a href="{{ url_for('about') }}">About</a></li>
+                    <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-header">
+            <div class="container">
+                <h1>About AAVA DE!</h1>
+                <p>Our mission is to make file sharing simple, secure, and accessible to everyone</p>
+            </div>
+        </section>
+
+        <section class="story-section">
+            <div class="container">
+                <div class="story-content">
+                    <h2>Our Story</h2>
+                    <p>AAVA DE! was founded in 2025 with a simple goal: to create a file sharing service that anyone could use without technical knowledge or complicated setup.</p>
+                    <p>We noticed that existing solutions were either too complex, too limited, or didn't prioritize user privacy. We set out to build something better—a platform that combines ease of use with robust security and generous storage options.</p>
+                    <p>Today, AAVA DE! is used by Thousands of people around the world, from individuals sharing personal photos to businesses collaborating on important documents. We're proud of what we've built, but we're just getting started.</p>
+                </div>
+                <div class="story-image">
+                    <img src="https://via.placeholder.com/500x400" alt="AAVA DE! team">
+                </div>
+            </div>
+        </section>
+
+        <section class="values-section">
+            <div class="container">
+                <h2 class="section-title">Our Values</h2>
+                <div class="values-grid">
+                    <div class="value-card">
+                        <div class="value-icon">🔒</div>
+                        <h3>Privacy First</h3>
+                        <p>We believe your files are your business. We design our systems with privacy as the foundation, not an afterthought.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon">🌍</div>
+                        <h3>Accessibility</h3>
+                        <p>Technology should work for everyone. We strive to make our platform accessible to users of all abilities and technical backgrounds.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon">⚡</div>
+                        <h3>Simplicity</h3>
+                        <p>Powerful doesn't have to mean complicated. We focus on creating intuitive experiences that don't sacrifice functionality.</p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon">🤝</div>
+                        <h3>Transparency</h3>
+                        <p>We're open about how we operate, how we handle your data, and how we make money. No hidden fees or surprise changes.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="team-section">
+            <div class="container">
+                <h2 class="section-title">Meet Our Team</h2>
+                <div class="team-grid">
+                    <div class="team-member">
+                        <div class="member-image">
+                            <img src="prayag.jpg" alt="Team member">
+                        </div>
+                        <h3>Prayag Goyani</h3>
+                        <p class="member-role">Co-Founder</p>
+                        <p class="member-bio">Prayag Goyani has over 1 year of experience in tech and previously founded Crop recommendation System.</p>
+                    </div>
+                    <div class="team-member">
+                        <div class="member-image">
+                            <img src="milav.jpg" alt="Team member">
+                        </div>
+                        <h3>Milav Dayani</h3>
+                        <p class="member-role">Co-Founder</p>
+                        <p class="member-bio">Milav is a C language prodigy having 1 year experience in Tech field and is a active Co-Founder of Virtual Supermarket.</p>
+                    </div>
+                    <div class="team-member">
+                        <div class="member-image">
+                            <img src="daksh.jpg" alt="Team member">
+                        </div>
+                        <h3>Daksh Amalseda</h3>
+                        <p class="member-role">Co-Founder</p>
+                        <p class="member-bio">Daksh is lead of  our design team with a focus on creating intuitive and accessible user experiences.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3>AAVA DE!</h3>
+                    <p>Simple, secure file sharing for everyone.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="{{ url_for('about') }}">About Us</a></li>
+                        <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="{{ url_for('terms') }}">Terms of Service</a></li>
+                        <li><a href="{{ url_for('privacy') }}">Privacy Policy</a></li>
+                        <li><a href="{{ url_for('cookie') }}">Cookie Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Connect</h4>
+                    <div class="social-links">
+                        <ul>
+                            <li><a href="https://www.linkedin.com/in/prayag-goyani-04a186324?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app">LinkedIn</a></li>
+                            <li><a href="https://www.instagram.com/prxyag_goyani?igsh=MWRpOTNtMnNvZHVxbw==">Instagram</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2025 AAVA DE!. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 

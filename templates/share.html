@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share File - AAVA DE!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>AAVA DE!</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="share-section">
+            <div class="container">
+                <div class="share-container">
+                    <h2>File Ready to Download</h2>
+                    <div class="file-info">
+                        <div class="file-icon">📄</div>
+                        <div class="file-details">
+                            <h3 id="fileName">Loading file information...</h3>
+                            <p id="fileSize">Please wait...</p>
+                        </div>
+                    </div>
+                    <div class="share-actions">
+                        <a href="{{ url_for('download_file', file_id=file_id) }}" class="btn-primary" id="downloadBtn">Download File</a>
+                        <div class="share-link">
+                            <input type="text" id="shareLink" readonly value="{{ url_for('download_file', file_id=file_id, _external=True) }}">
+                            <button id="copyBtn" class="btn-copy">Copy</button>
+                        </div>
+                        <div id="qrCodeContainer" class="qr-code-container">
+                            <img src="{{ url_for('static', filename='img/loading.gif') }}" alt="Loading QR code...">
+                        </div>
+                    </div>
+                    <div class="share-info">
+                        <p>Scan the QR code to download on your mobile device</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="copyright">
+                <p>&copy; 2025 AAVA DE!. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Get file information when page loads
+        fetch('/file_info/{{ file_id }}')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('fileName').textContent = data.filename;
+                document.getElementById('fileSize').textContent = formatFileSize(data.size);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('fileName').textContent = 'Error loading file information';
+            });
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html> 
