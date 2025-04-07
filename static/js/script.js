@@ -14,34 +14,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingOverlay = document.getElementById('loadingOverlay');
     const qrCodeContainer = document.getElementById('qrCodeContainer');
 
-    // Load QR Code library
-    loadQRCodeLibrary();
-
-    // Show loading overlay initially
-    loadingOverlay.classList.add('active');
-    
-    // Simulate page loading
-    setTimeout(() => {
-        loadingOverlay.classList.remove('active');
-    }, 1500);
+    // Initial setup
+    uploadProgress.style.display = 'none';
+    uploadSuccess.style.display = 'none';
+    loadingOverlay.classList.remove('active');
 
     // Single button for browse and upload
     browseBtn.addEventListener('click', function() {
         fileInput.click();
     });
 
-    // File input change - This is the critical event handler
+    // File input change
     fileInput.addEventListener('change', function(event) {
-        // Ensure we have files selected
         if (this.files && this.files.length > 0) {
             console.log('Files selected:', this.files.length);
-            // Validate file size before proceeding
-            if (validateFileSize(this.files)) {
-                handleFiles(this.files);
-            } else {
-                // Reset the file input if validation fails
-                this.value = '';
-            }
+            handleFiles(this.files);
         }
     });
 
@@ -76,9 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleDrop(e) {
         const dt = e.dataTransfer;
         const files = dt.files;
-        if (validateFileSize(files)) {
-            handleFiles(files);
-        }
+        handleFiles(files);
     }
 
     // Handle files
@@ -88,12 +73,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('file', files[0]);
 
-        // Show loading overlay
-        loadingOverlay.classList.add('active');
-
         // Show upload progress
         uploadProgress.style.display = 'block';
         dropZone.style.display = 'none';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
 
         // Create XMLHttpRequest
         const xhr = new XMLHttpRequest();
@@ -103,28 +87,41 @@ document.addEventListener('DOMContentLoaded', function() {
         xhr.upload.onprogress = function(e) {
             if (e.lengthComputable) {
                 const percentComplete = (e.loaded / e.total) * 100;
-                progressBar.style.width = `${percentComplete}%`;
-                progressText.textContent = `${Math.round(percentComplete)}%`;
+                progressBar.style.width = percentComplete + '%';
+                progressText.textContent = Math.round(percentComplete) + '%';
             }
         };
 
         xhr.onload = function() {
             if (xhr.status === 200) {
-                const response = JSON.parse(xhr.responseText);
-                handleUploadSuccess(response);
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        handleUploadSuccess(response);
+                    } else {
+                        handleUploadError(response.error || 'Upload failed');
+                    }
+                } catch (e) {
+                    handleUploadError('Invalid server response');
+                }
             } else {
-                handleUploadError();
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    handleUploadError(response.error || 'Upload failed');
+                } catch (e) {
+                    handleUploadError('Upload failed');
+                }
             }
         };
 
-        xhr.onerror = handleUploadError;
+        xhr.onerror = function() {
+            handleUploadError('Network error occurred');
+        };
+
         xhr.send(formData);
     }
 
     function handleUploadSuccess(response) {
-        // Hide loading overlay
-        loadingOverlay.classList.remove('active');
-
         // Hide progress, show success
         uploadProgress.style.display = 'none';
         uploadSuccess.style.display = 'block';
@@ -133,55 +130,18 @@ document.addEventListener('DOMContentLoaded', function() {
         shareLink.value = response.share_url;
 
         // Display QR code
-        const qrCodeImg = document.createElement('img');
-        qrCodeImg.src = 'data:image/png;base64,' + response.qr_code;
-        qrCodeContainer.innerHTML = '';
-        qrCodeContainer.appendChild(qrCodeImg);
-    }
-
-    function handleUploadError() {
-        loadingOverlay.classList.remove('active');
-        uploadProgress.style.display = 'none';
-        alert('Upload failed. Please try again.');
-        dropZone.style.display = 'block';
-    }
-
-    // Generate QR Code
-    function generateQRCode(url) {
-        if (typeof QRCode !== 'undefined' && qrCodeContainer) {
-            // Clear previous QR code
+        if (response.qr_code) {
+            const qrCodeImg = document.createElement('img');
+            qrCodeImg.src = 'data:image/png;base64,' + response.qr_code;
             qrCodeContainer.innerHTML = '';
-            
-            // Generate new QR code
-            new QRCode(qrCodeContainer, {
-                text: url,
-                width: 128,
-                height: 128,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
-            qrCodeContainer.style.display = 'block';
-        } else {
-            console.error('QR Code library not loaded or container not found');
+            qrCodeContainer.appendChild(qrCodeImg);
         }
     }
 
-    // Load QR Code library dynamically
-    function loadQRCodeLibrary() {
-        if (!window.QRCode) {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
-            script.async = true;
-            script.onload = function() {
-                console.log('QR Code library loaded');
-            };
-            script.onerror = function() {
-                console.error('Failed to load QR Code library');
-            };
-            document.head.appendChild(script);
-        }
+    function handleUploadError(message) {
+        uploadProgress.style.display = 'none';
+        dropZone.style.display = 'block';
+        alert(message || 'Upload failed. Please try again.');
     }
 
     // Copy share link
@@ -199,33 +159,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // New upload button
     newUploadBtn.addEventListener('click', function() {
+        // Reset the form
+        fileInput.value = '';
         uploadSuccess.style.display = 'none';
         dropZone.style.display = 'block';
-        qrCodeContainer.style.display = 'none';
-        fileInput.value = '';
+        qrCodeContainer.innerHTML = '';
     });
-
-    // Language selector
-    const languageSelector = document.getElementById('language');
-    if (languageSelector) {
-        languageSelector.addEventListener('change', function() {
-            // Simulate language change
-            loadingOverlay.classList.add('active');
-            setTimeout(() => {
-                loadingOverlay.classList.remove('active');
-            }, 1000);
-        });
-    }
-
-    // Simulate file size validation
-    function validateFileSize(files) {
-        const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].size > maxSize) {
-                alert(`File ${files[i].name} exceeds the 2GB limit.`);
-                return false;
-            }
-        }
-        return true;
-    }
 });

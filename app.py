@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, redirect, url_for
 import os
 import uuid
 import base64
@@ -6,6 +6,11 @@ import qrcode
 from werkzeug.utils import secure_filename
 from io import BytesIO
 import json
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -18,7 +23,11 @@ file_storage = {}
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f"Error rendering index: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/about')
 def about():
@@ -46,86 +55,130 @@ def sanitize_filename(filename):
 
 def generate_qr_code(data):
     """Generate QR code from data"""
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Save QR code to bytes
-    img_byte_arr = BytesIO()
-    img.save(img_byte_arr, format='PNG')
-    img_byte_arr.seek(0)
-    return img_byte_arr
+    try:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Save QR code to bytes
+        img_byte_arr = BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        return img_byte_arr
+    except Exception as e:
+        logger.error(f"Error generating QR code: {str(e)}")
+        return None
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file:
-        try:
-            filename = secure_filename(file.filename)
-        except:
-            filename = sanitize_filename(file.filename)
+    try:
+        logger.info("Upload request received")
         
-        # Generate unique ID for the file
-        file_id = str(uuid.uuid4())
+        if 'file' not in request.files:
+            logger.error("No file part in request")
+            return jsonify({'error': 'No file part'}), 400
         
-        # Read file into memory
-        file_data = file.read()
+        file = request.files['file']
+        if file.filename == '':
+            logger.error("No selected file")
+            return jsonify({'error': 'No selected file'}), 400
         
-        # Store file information
-        file_storage[file_id] = {
-            'filename': filename,
-            'data': file_data,
-            'size': len(file_data)
-        }
-        
-        # Generate share URL
-        share_url = "{0}download/{1}".format(request.host_url, file_id)
-        
-        # Generate QR code
-        qr_code = generate_qr_code(share_url)
-        
-        return jsonify({
-            'success': True,
-            'file_id': file_id,
-            'filename': filename,
-            'share_url': share_url,
-            'qr_code': base64.b64encode(qr_code.getvalue()).decode('utf-8')
-        })
+        if file:
+            try:
+                filename = secure_filename(file.filename)
+            except:
+                filename = sanitize_filename(file.filename)
+            
+            logger.info(f"Processing file: {filename}")
+            
+            # Generate unique ID for the file
+            file_id = str(uuid.uuid4())
+            
+            # Read file into memory
+            file_data = file.read()
+            
+            # Store file information
+            file_storage[file_id] = {
+                'filename': filename,
+                'data': file_data,
+                'size': len(file_data)
+            }
+            
+            # Generate share URL
+            share_url = request.host_url.rstrip('/') + url_for('download_file', file_id=file_id)
+            
+            # Generate QR code
+            qr_code = generate_qr_code(share_url)
+            if qr_code is None:
+                return jsonify({'error': 'Failed to generate QR code'}), 500
+            
+            response_data = {
+                'success': True,
+                'file_id': file_id,
+                'filename': filename,
+                'share_url': share_url,
+                'qr_code': base64.b64encode(qr_code.getvalue()).decode('utf-8')
+            }
+            
+            logger.info(f"File processed successfully: {file_id}")
+            return jsonify(response_data)
+            
+    except Exception as e:
+        logger.error(f"Error in upload_file: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/download/<file_id>')
 def download_file(file_id):
-    if file_id not in file_storage:
-        return jsonify({'error': 'File not found'}), 404
-    
-    file_info = file_storage[file_id]
-    
-    return send_file(
-        BytesIO(file_info['data']),
-        mimetype='application/octet-stream',
-        as_attachment=True,
-        attachment_filename=file_info['filename']
-    )
+    try:
+        if file_id not in file_storage:
+            logger.error(f"File not found: {file_id}")
+            return jsonify({'error': 'File not found'}), 404
+        
+        file_info = file_storage[file_id]
+        
+        return send_file(
+            BytesIO(file_info['data']),
+            mimetype='application/octet-stream',
+            as_attachment=True,
+            attachment_filename=file_info['filename']
+        )
+    except Exception as e:
+        logger.error(f"Error in download_file: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/file_info/<file_id>')
 def file_info(file_id):
-    if file_id not in file_storage:
-        return jsonify({'error': 'File not found'}), 404
-    
-    info = file_storage[file_id].copy()
-    del info['data']  # Remove binary data from response
-    return jsonify(info)
+    try:
+        if file_id not in file_storage:
+            logger.error(f"File info not found: {file_id}")
+            return jsonify({'error': 'File not found'}), 404
+        
+        info = file_storage[file_id].copy()
+        del info['data']  # Remove binary data from response
+        return jsonify(info)
+    except Exception as e:
+        logger.error(f"Error in file_info: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({'error': 'File too large. Maximum size is 50MB'}), 413
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal server error: {str(error)}")
+    return jsonify({'error': 'Internal server error'}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {str(e)}")
+    return jsonify({'error': 'Internal server error'}), 500
 
 app.debug = False
 
