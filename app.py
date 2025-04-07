@@ -38,23 +38,25 @@ def init_db():
         # Remove existing database if it's corrupted
         if os.path.exists(app.config['DATABASE']):
             try:
-                with sqlite3.connect(app.config['DATABASE']) as test_conn:
-                    test_conn.execute('SELECT 1 FROM files')
+                conn = sqlite3.connect(app.config['DATABASE'])
+                conn.execute('SELECT 1 FROM files')
+                conn.close()
             except:
                 os.remove(app.config['DATABASE'])
         
-        with sqlite3.connect(app.config['DATABASE']) as conn:
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS files (
-                    id TEXT PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    filepath TEXT NOT NULL,
-                    size INTEGER NOT NULL,
-                    created_at TIMESTAMP NOT NULL,
-                    expires_at TIMESTAMP NOT NULL
-                )
-            ''')
-            conn.commit()
+        conn = sqlite3.connect(app.config['DATABASE'])
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS files (
+                id TEXT PRIMARY KEY,
+                filename TEXT NOT NULL,
+                filepath TEXT NOT NULL,
+                size INTEGER NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                expires_at TIMESTAMP NOT NULL
+            )
+        ''')
+        conn.commit()
+        conn.close()
         logger.info("Database initialized at: %s", os.path.abspath(app.config['DATABASE']))
     except Exception as e:
         logger.error("Error initializing database: %s", str(e))
@@ -154,7 +156,8 @@ def upload_file():
             file_size = os.path.getsize(file_path)
             
             # Store file info in SQLite
-            with get_db() as conn:
+            conn = get_db()
+            try:
                 now = datetime.utcnow()
                 expires = now + timedelta(days=7)
                 conn.execute(
@@ -162,6 +165,8 @@ def upload_file():
                     (file_id, filename, file_path, file_size, now, expires)
                 )
                 conn.commit()
+            finally:
+                conn.close()
             
             # Generate share URL
             share_url = request.host_url.rstrip('/') + url_for('download_file', file_id=file_id)
@@ -190,7 +195,8 @@ def upload_file():
 @app.route('/download/<file_id>')
 def download_file(file_id):
     try:
-        with get_db() as conn:
+        conn = get_db()
+        try:
             # Find file in database
             file = conn.execute('SELECT * FROM files WHERE id = ?', (file_id,)).fetchone()
             
@@ -211,6 +217,8 @@ def download_file(file_id):
                 as_attachment=True,
                 attachment_filename=file['filename']
             )
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("Error in download_file: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
@@ -218,7 +226,8 @@ def download_file(file_id):
 @app.route('/file_info/<file_id>')
 def file_info(file_id):
     try:
-        with get_db() as conn:
+        conn = get_db()
+        try:
             # Find file in database
             file = conn.execute('SELECT * FROM files WHERE id = ?', (file_id,)).fetchone()
             
@@ -241,6 +250,8 @@ def file_info(file_id):
                 'expires_at': file['expires_at']
             }
             return jsonify(info)
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("Error in file_info: %s", str(e))
         return jsonify({'error': 'Internal server error'}), 500
