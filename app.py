@@ -8,11 +8,13 @@ from io import BytesIO
 import json
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
-app.config['SECRET_KEY'] = base64.b64encode(os.urandom(24))
 
-# Store file information
+# Use environment variables for configuration
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Use /tmp for serverless
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max file size
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', base64.b64encode(os.urandom(24)))
+
+# Store file information (in-memory for serverless)
 file_storage = {}
 
 # Ensure upload directory exists
@@ -127,6 +129,9 @@ def file_info(file_id):
     
     return jsonify(file_storage[file_id])
 
+# This is required for Vercel
 if __name__ == '__main__':
-    print(" * Running on http://127.0.0.1:5000/")
-    app.run(host='127.0.0.1', port=5000)
+    app.run()
+else:
+    # This is required for Vercel
+    handler = app
